@@ -126,15 +126,30 @@ var MyComponent = /*#__PURE__*/function (_Component) {
   var _super = _createSuper(MyComponent);
 
   function MyComponent() {
+    var _this;
+
     _classCallCheck(this, MyComponent);
 
-    return _super.apply(this, arguments);
+    _this = _super.call(this);
+    _this.state = {
+      a: 1,
+      b: 2
+    };
+    return _this;
   }
 
   _createClass(MyComponent, [{
     key: "render",
     value: function render() {
-      return Object(_toy_react_js__WEBPACK_IMPORTED_MODULE_0__["createElement"])("div", null, Object(_toy_react_js__WEBPACK_IMPORTED_MODULE_0__["createElement"])("h1", null, "MyComponent"), this.children);
+      var _this2 = this;
+
+      return Object(_toy_react_js__WEBPACK_IMPORTED_MODULE_0__["createElement"])("div", null, Object(_toy_react_js__WEBPACK_IMPORTED_MODULE_0__["createElement"])("h1", null, "MyComponent"), Object(_toy_react_js__WEBPACK_IMPORTED_MODULE_0__["createElement"])("button", {
+        onClick: function onClick() {
+          _this2.setState({
+            a: _this2.state.a + 1
+          });
+        }
+      }, "add"), Object(_toy_react_js__WEBPACK_IMPORTED_MODULE_0__["createElement"])("p", null, this.state.a.toString()), Object(_toy_react_js__WEBPACK_IMPORTED_MODULE_0__["createElement"])("p", null, this.state.b.toString()), this.children);
     }
   }]);
 
@@ -144,7 +159,7 @@ var MyComponent = /*#__PURE__*/function (_Component) {
 Object(_toy_react_js__WEBPACK_IMPORTED_MODULE_0__["render"])(Object(_toy_react_js__WEBPACK_IMPORTED_MODULE_0__["createElement"])(MyComponent, {
   id: "my",
   "class": "cl"
-}, Object(_toy_react_js__WEBPACK_IMPORTED_MODULE_0__["createElement"])("div", null, "1"), Object(_toy_react_js__WEBPACK_IMPORTED_MODULE_0__["createElement"])("div", null, "2")), document.body);
+}, Object(_toy_react_js__WEBPACK_IMPORTED_MODULE_0__["createElement"])("div", null, "root 666"), Object(_toy_react_js__WEBPACK_IMPORTED_MODULE_0__["createElement"])("div", null, "root 888")), document.body);
 /* function createElement(type, attr, ...children) {
     console.log(type, attr, ...children)
 }
@@ -184,6 +199,8 @@ function _defineProperties(target, props) { for (var i = 0; i < props.length; i+
 
 function _createClass(Constructor, protoProps, staticProps) { if (protoProps) _defineProperties(Constructor.prototype, protoProps); if (staticProps) _defineProperties(Constructor, staticProps); return Constructor; }
 
+var RENDER_TO_DOM = Symbol('render to dom');
+
 var ElementWrapper = /*#__PURE__*/function () {
   function ElementWrapper(type) {
     _classCallCheck(this, ElementWrapper);
@@ -194,23 +211,52 @@ var ElementWrapper = /*#__PURE__*/function () {
   _createClass(ElementWrapper, [{
     key: "setAttribute",
     value: function setAttribute(name, value) {
-      this.root.setAttribute(name, value);
+      // 匹配注册事件
+      if (name.match(/^on([\s\S]+)$/)) {
+        this.root.addEventListener(RegExp.$1.replace(/^[\s\S]/, function (c) {
+          return c.toLowerCase();
+        }), value);
+      } else {
+        this.root.setAttribute(name, value);
+      }
     }
   }, {
     key: "appendChild",
     value: function appendChild(component) {
-      this.root.appendChild(component.root);
+      //v1.0 this.root.appendChild(component.root)
+      var range = document.createRange();
+      range.setStart(this.root, this.root.childNodes.length);
+      range.setEnd(this.root, this.root.childNodes.length);
+      component[RENDER_TO_DOM](range);
+    }
+  }, {
+    key: RENDER_TO_DOM,
+    value: function value(range) {
+      range.deleteContents();
+      range.insertNode(this.root);
     }
   }]);
 
   return ElementWrapper;
 }();
 
-var TextWrapper = function TextWrapper(content) {
-  _classCallCheck(this, TextWrapper);
+var TextWrapper = /*#__PURE__*/function () {
+  function TextWrapper(content) {
+    _classCallCheck(this, TextWrapper);
 
-  this.root = document.createTextNode(content);
-};
+    this.root = document.createTextNode(content);
+  }
+
+  _createClass(TextWrapper, [{
+    key: RENDER_TO_DOM,
+    value: function value(range) {
+      range.deleteContents();
+      range.insertNode(this.root);
+    }
+  }]);
+
+  return TextWrapper;
+}();
 
 var Component = /*#__PURE__*/function () {
   function Component() {
@@ -219,6 +265,7 @@ var Component = /*#__PURE__*/function () {
     this.props = Object.create(null);
     this.children = [];
     this._root = null;
+    this._range = null;
   }
 
   _createClass(Component, [{
@@ -232,14 +279,48 @@ var Component = /*#__PURE__*/function () {
       this.children.push(component);
     }
   }, {
-    key: "root",
-    get: function get() {
-      if (!this._root) {
-        this._root = this.render().root;
+    key: RENDER_TO_DOM,
+    value: function value(range) {
+      this._range = range;
+      this.render()[RENDER_TO_DOM](range);
+    }
+  }, {
+    key: "rerender",
+    value: function rerender() {
+      this._range.deleteContents();
+
+      this[RENDER_TO_DOM](this._range);
+    }
+  }, {
+    key: "setState",
+    value: function setState(newState) {
+      if (this.state === null || _typeof(this.state) !== "object") {
+        this.state = newState;
+        this.rerender();
+        return;
       }
 
-      return this._root;
+      var merge = function merge(oldState, newState) {
+        for (var k in newState) {
+          if (oldState[k] === null || _typeof(oldState[k]) !== "object") {
+            oldState[k] = newState[k];
+          } else {
+            merge(oldState[k], newState[k]);
+          }
+        }
+      };
+
+      merge(this.state, newState);
+      this.rerender();
     }
+    /* V1.0
+    get root() {
+        if (!this._root) {
+            this._root = this.render().root;
+        }
+        return this._root;
+    } */
+
   }]);
 
   return Component;
@@ -250,7 +331,6 @@ function createElement(type, attributes) {
   if (typeof type === 'string') {
     e = new ElementWrapper(type);
   } else {
-    console.log(_typeof(type));
     e = new type();
   }
 
@@ -290,7 +370,12 @@ function createElement(type, attributes) {
   return e;
 }
 function render(component, parentElement) {
-  parentElement.appendChild(component.root);
+  // v1.0 parentElement.appendChild(component.root)
+  var range = document.createRange();
+  range.setStart(parentElement, 0);
+  range.setEnd(parentElement, parentElement.childNodes.length);
+  range.deleteContents();
+  component[RENDER_TO_DOM](range);
 }
 
 /***/ })

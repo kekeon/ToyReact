@@ -2,12 +2,27 @@ import { createElement, Component, render } from './toy-react.js';
 
 class MyComponent extends Component {
 
+    constructor() {
+        super();
+        this.state = {
+            a: 1,
+            b: 2
+        }
+    }
+
     render() {
         return (
             <div>
                 <h1>
                     MyComponent
                 </h1>
+                <button onClick={() => {
+                    this.setState({
+                        a: this.state.a + 1
+                    })
+                }}>add</button>
+                <p>{this.state.a.toString()}</p>
+                <p>{this.state.b.toString()}</p>
                 {this.children}
             </div>
         )
@@ -16,10 +31,10 @@ class MyComponent extends Component {
 
 render(<MyComponent id='my' class='cl'>
     <div>
-        1
+        root 666
     </div>
     <div>
-        2
+        root 888
     </div>
 </MyComponent >, document.body)
 
