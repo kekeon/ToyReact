@@ -21,3 +21,7 @@ simple react
 ```
 
 3. ElementWrapper、TextWrapper、Component、createElement 相关实现
+
+4. update 简单 diff 实现局部更新
+
+5. 待回顾
